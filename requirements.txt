@@ -1,0 +1,9 @@
+osmnx
+networkx
+geopandas
+pandas
+scipy
+matplotlib
+numpy
+shapely
+tqdm

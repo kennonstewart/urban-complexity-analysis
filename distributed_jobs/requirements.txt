@@ -1,0 +1,17 @@
+# Requirements for urban-complexity-analysis distributed jobs
+# Python packages needed for downloading and analyzing city road networks
+
+# Core scientific computing
+numpy
+pandas
+
+# Network analysis
+networkx
+osmnx
+
+# Geospatial data processing
+geopandas
+shapely
+
+# Visualization
+matplotlib

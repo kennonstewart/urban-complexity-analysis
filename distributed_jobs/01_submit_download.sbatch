@@ -1,10 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=download_cities
-#SBATCH --output=download_%j.log
-#SBATCH --error=download_%j.err
-#SBATCH --nodes=1
-#SBATCH --mem=4G
-#SBATCH --time=01:00:00
+#SBATCH --job-name=urban-complexity-download
+#SBATCH --account=sstoev0
+#SBATCH --partition=standard
+#SBATCH --time=00:30:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=2G
+#SBATCH --array=0-499%50
+#SBATCH --output=/scratch/sstoev_root/sstoev0/ksstewar/uca_01_%x_%A_%a.out
+#SBATCH --error=/scratch/sstoev_root/sstoev0/ksstewar/uca_01_%x_%A_%a.err
 
 # Download city road networks sequentially
 # This job should be run before the analysis job array

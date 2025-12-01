@@ -1,11 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=analyze_city
-#SBATCH --output=analyze_%A_%a.log
-#SBATCH --error=analyze_%A_%a.err
-#SBATCH --nodes=1
-#SBATCH --mem=8G
-#SBATCH --time=01:00:00
-#SBATCH --array=1-4
+#SBATCH --job-name=urban-complexity-download
+#SBATCH --account=sstoev0
+#SBATCH --partition=standard
+#SBATCH --time=00:30:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=2G
+#SBATCH --array=0-499%50
+#SBATCH --output=/scratch/sstoev_root/sstoev0/ksstewar/uca_02_%x_%A_%a.out
+#SBATCH --error=/scratch/sstoev_root/sstoev0/ksstewar/uca_02_%x_%A_%a.err
+
 
 # Analyze city road networks in parallel using a job array
 # This job should be run after the download job completes

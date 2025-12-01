@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import osmnx as ox
+import pandas as pd
 from shapely.geometry import Point
 
 
@@ -225,7 +226,7 @@ def main():
     print(f"  Saved edgelist to: {edgelist_path}")
 
     # Cleanup intermediate objects
-    if "G_simplified" in dir():
+    if "G_simplified" in locals():
         del G_simplified
     del G_proj
     gc.collect()
@@ -249,8 +250,6 @@ def main():
         radius_rows.append(stats)
 
     # Save MDL stats
-    import pandas as pd
-
     mdl_df = pd.DataFrame(radius_rows)
     mdl_stats_path = os.path.join(results_dir, f"{city_key}_mdl_stats.csv")
     mdl_df.to_csv(mdl_stats_path, index=False)

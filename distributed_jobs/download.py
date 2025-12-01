@@ -31,8 +31,7 @@ def main():
     manifest_path = os.path.join(os.path.dirname(__file__), "..", "data", "manifest.txt")
 
     # Clear the manifest file if it exists
-    with open(manifest_path, "w") as f:
-        pass
+    open(manifest_path, "w").close()
 
     # Download each city's graph
     for i, place in enumerate(places):

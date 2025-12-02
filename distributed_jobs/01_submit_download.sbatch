@@ -6,9 +6,8 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=2G
-#SBATCH --array=0-499%50
-#SBATCH --output=/scratch/sstoev_root/sstoev0/ksstewar/uca_01_%x_%A_%a.out
-#SBATCH --error=/scratch/sstoev_root/sstoev0/ksstewar/uca_01_%x_%A_%a.err
+#SBATCH --output=/scratch/sstoev_root/sstoev0/ksstewar/uca_01_%x_%j.out
+#SBATCH --error=/scratch/sstoev_root/sstoev0/ksstewar/uca_01_%x_%j.err
 
 # Download city road networks sequentially
 # This job should be run before the analysis job array

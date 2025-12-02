@@ -10,14 +10,13 @@
 #SBATCH --output=/scratch/sstoev_root/sstoev0/ksstewar/uca_02_%x_%A_%a.out
 #SBATCH --error=/scratch/sstoev_root/sstoev0/ksstewar/uca_02_%x_%A_%a.err
 
-
 # Analyze city road networks in parallel using a job array
 # This job should be run after the download job completes
 # Submit with: sbatch --dependency=afterok:<download_job_id> 02_submit_analysis.sbatch
 
 # Load modules (adjust based on your HPC environment)
-# module load python/3.9
-# module load gdal
+module load python/3.9
+module load gdal
 
 # Activate virtual environment if needed
 # source /path/to/venv/bin/activate
@@ -25,16 +24,15 @@
 # Change to the distributed_jobs directory
 cd "$(dirname "$0")"
 
-# Read the city key from manifest.txt based on the array task ID
-CITY_KEY=$(sed -n "${SLURM_ARRAY_TASK_ID}p" ../data/manifest.txt)
+# Get the city key corresponding to this task ID
+# SLURM_ARRAY_TASK_ID is 0-indexed, sed is 1-indexed
+LINE_NUM=$((SLURM_ARRAY_TASK_ID + 1))
+CITY_KEY=$(sed "${LINE_NUM}q;d" ../data/manifest.txt)
 
-# Check if we got a valid city key
 if [ -z "$CITY_KEY" ]; then
-    echo "Error: Could not read city key for task ID ${SLURM_ARRAY_TASK_ID}"
+    echo "Error: No city key found for task ID $SLURM_ARRAY_TASK_ID in manifest"
     exit 1
 fi
 
-echo "Processing city: $CITY_KEY (Task ID: $SLURM_ARRAY_TASK_ID)"
-
-# Run the analysis script
+echo "Processing city: $CITY_KEY"
 python analyze_city.py --city "$CITY_KEY"

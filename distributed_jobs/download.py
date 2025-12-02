@@ -24,11 +24,11 @@ def main():
     ]
 
     # Ensure the data/raw directory exists
-    raw_dir = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
+    raw_dir = os.path.join(os.path.dirname(__file__), "data", "raw")
     os.makedirs(raw_dir, exist_ok=True)
 
     # Path to manifest file
-    manifest_path = os.path.join(os.path.dirname(__file__), "..", "data", "manifest.txt")
+    manifest_path = os.path.join(os.path.dirname(__file__), "data", "manifest.txt")
 
     # Clear the manifest file if it exists
     open(manifest_path, "w").close()

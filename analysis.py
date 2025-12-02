@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, LineString
 import gc
-from tqdm import tqdm
+import tqdm
 
 # %% [markdown]
 # ## Case Study: Analyzing the Complexity of New York's Road Network
@@ -92,10 +92,7 @@ def mdl_stats(G_sub):
 # %%
 # Define place name or coordinates
 places = [
-    "Manhattan, New York, USA",
-    "San Francisco, California, USA",
-    "Detroit, Michigan, USA",
-    "Seattle, Washington, USA",
+    "Manhattan, New York, USA"
 ]
 
 map_data = {}
@@ -113,7 +110,7 @@ for place in places:
 # %%
 # Visualize each city's road network with explicit memory management
 print("Generating network visualizations...")
-for place in tqdm(map_data, desc="Plotting cities"):
+for place in tqdm.tqdm(map_data, desc="Plotting cities"):
     G = map_data[place]
     
     # Create the plot
@@ -146,20 +143,20 @@ print("Visualization complete")
 cleaned_map_data = {}
 
 print("Cleaning and exporting graph data...")
-for place in tqdm(map_data, desc="Processing cities"):
+for place in tqdm.tqdm(map_data, desc="Processing cities"):
     G = map_data[place]
     
     # Clean the data
     try: 
         G_simplified = ox.simplification.simplify_graph(G)
         G_proj = ox.project_graph(G_simplified)
-        G_std = ox.convert.graph_to_gdfs(G_proj, nodes=True, edges=True)
-        cleaned_map_data[place] = G_std
+        G_std_nodes, G_std_edges = ox.convert.graph_to_gdfs(G_proj, nodes=True, edges=True)
+        cleaned_map_data[place] = G_std_nodes, G_std_edges
     except Exception as e:
         print(f"  Warning: Simplification failed for {place}, using direct projection: {e}")
         G_proj = ox.project_graph(G)
-        G_std = ox.convert.graph_to_gdfs(G_proj, nodes=True, edges=True)
-        cleaned_map_data[place] = G_std
+        G_std_nodes, G_std_edges = ox.convert.graph_to_gdfs(G_proj, nodes=True, edges=True)
+        cleaned_map_data[place] = G_std_nodes, G_std_edges
     
     # Generate canonical representations
     filename = f"{place}"
@@ -191,7 +188,7 @@ def plot_mdl_radius(mdl_df, place):
     plt.plot(df["radius_m"] / 1000, df["mdl_per_edge"], marker="o")
     plt.xlabel("Radius (km)")
     plt.ylabel("MDL per edge (bits)")
-    plt.title(f"MDL radius curve – {place}")
+    plt.title(f"MDL radius curve {place}")
     plt.grid(True)
     plt.show()
 
@@ -205,7 +202,7 @@ def plot_mdl_radius(mdl_df, place):
 print("Computing MDL statistics for radius subgraphs...")
 all_radius_rows = []
 
-for place, G in tqdm(map_data.items(), desc="Analyzing cities"):
+for place, G in tqdm.tqdm(map_data.items(), desc="Analyzing cities"):
     center_lon, center_lat = get_city_center(G)
     radii_m = make_radii(max_km=10, step_km=0.5)
 
@@ -240,7 +237,7 @@ print(f"    Results saved to mdl_radius_results.csv")
 # I'd also like to visualize the network structurally. When removing the spatial aspect, which biases me toward a geographic interpretation, I have to find a way to remove that information for a more structural analysis.
 
 # %%
-def plot_force_directed(G, place=None, sample_nodes=None):
+def plot_force_directed(G_nodes, G_edges, place=None, sample_nodes=None):
     # Optionally restrict to a subset of nodes (for big graphs)
     if sample_nodes is not None and G.number_of_nodes() > sample_nodes:
         # simplest: take a random induced subgraph
@@ -249,6 +246,9 @@ def plot_force_directed(G, place=None, sample_nodes=None):
         H = G.subgraph(nodes).copy()
     else:
         H = G
+
+    # convert (nodes, edges) data to standard format
+    H = ox.graph_from_gdfs(G_nodes, G_edges)
 
     # Make sure it's undirected for layout stability
     H_und = H.to_undirected()
@@ -269,7 +269,7 @@ def plot_force_directed(G, place=None, sample_nodes=None):
         pos,
         ax=ax,
         width=0.5,
-        alpha=1,
+        alpha=0.3,
         edge_color="#69DDFF"
     )
     nx.draw_networkx_nodes(
@@ -282,18 +282,19 @@ def plot_force_directed(G, place=None, sample_nodes=None):
     )
 
     if place is not None:
-        ax.set_title(f"{place} – force-directed layout", color="white")
+        ax.set_title(f"{place} force-directed layout", color="white")
 
     ax.set_xticks([])
     ax.set_yticks([])
     plt.tight_layout()
     plt.show()
     plt.close(fig)
+    plt.savefig(f"{place}_force_directed.png", dpi=300, bbox_inches='tight')
 print("Generating force-directed visualizations...")
 
-for place in tqdm(map_data, desc="Force-directed plotting"):
-    G = map_data[place]
-    plot_force_directed(G, place=place, sample_nodes=1000)
+for place in tqdm.tqdm(cleaned_map_data, desc="Force-directed plotting"):
+    G_nodes, G_edges = cleaned_map_data[place]
+    plot_force_directed(G_nodes, G_edges, place=place)
 
 # %% [markdown]
 # ### Step 4: Visualize MDL Results

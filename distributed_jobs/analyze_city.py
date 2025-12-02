@@ -198,46 +198,39 @@ def mdl_stats(G_sub):
 
 
 def plot_force_directed(G, place=None, sample_nodes=None, output_path=None):
-    """Generate a force-directed layout visualization.
-    
-    Creates a spring-layout (force-directed) visualization of the road network.
-    For large graphs, a random sample of nodes is used to improve performance.
-    
+    """Generate a force-directed layout visualization using notebook logic.
+
+    Mirrors the simpler plotting approach from the analysis notebook:
+    - Optional random node sampling for large graphs
+    - Spring layout (force-directed) with fixed seed for determinism
+    - Dark background styling with lower edge alpha (0.3)
+    - Saves to PNG if an output path is provided
+
     Args:
-        G (networkx.MultiDiGraph): The road network graph to visualize.
-        place (str, optional): Name of the city/place for the plot title.
-        sample_nodes (int, optional): Maximum number of nodes to include. If the
-            graph is larger, a random sample is taken. Default is None (use all nodes).
-        output_path (str, optional): Path to save the plot. If None, plot is not saved.
-        
-    Returns:
-        None: Saves the plot to disk if output_path is provided.
+        G (networkx.MultiDiGraph): Road network graph.
+        place (str, optional): Title label (city name).
+        sample_nodes (int, optional): Max nodes; randomly samples if exceeded.
+        output_path (str, optional): File path to save PNG.
     """
-    logger.info(f"Generating force-directed layout for {G.number_of_nodes()} nodes")
-    
     # Optionally restrict to a subset of nodes (for big graphs)
     if sample_nodes is not None and G.number_of_nodes() > sample_nodes:
-        # Take a random induced subgraph for better performance
-        logger.info(f"Sampling {sample_nodes} nodes from {G.number_of_nodes()} total nodes")
+        import random
         nodes = random.sample(list(G.nodes()), sample_nodes)
         H = G.subgraph(nodes).copy()
     else:
         H = G
 
-    # Make sure it's undirected for layout stability
-    logger.debug("Converting to undirected graph for layout computation")
+    # Undirected for layout stability
     H_und = H.to_undirected()
 
-    # Compute spring layout (force-directed)
-    logger.debug("Computing spring layout (this may take a moment for large graphs)")
+    # Compute spring layout
     pos = nx.spring_layout(
         H_und,
-        seed=42,          # deterministic
-        k=None,           # defaults based on 1/sqrt(n)
-        iterations=100    # bump if layouts look messy
+        seed=42,
+        k=None,
+        iterations=100
     )
 
-    logger.debug("Rendering visualization")
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.set_facecolor("#111111")
 
@@ -246,7 +239,7 @@ def plot_force_directed(G, place=None, sample_nodes=None, output_path=None):
         pos,
         ax=ax,
         width=0.5,
-        alpha=1,
+        alpha=0.3,
         edge_color="#69DDFF"
     )
     nx.draw_networkx_nodes(
@@ -259,7 +252,7 @@ def plot_force_directed(G, place=None, sample_nodes=None, output_path=None):
     )
 
     if place is not None:
-        ax.set_title(f"{place} – force-directed layout", color="white")
+        ax.set_title(f"{place} force-directed layout", color="white")
 
     ax.set_xticks([])
     ax.set_yticks([])
@@ -312,6 +305,7 @@ Output files will be saved to data/results/:
 
     # Set up paths
     base_dir = os.path.dirname(__file__)
+    # Go up one level to find the data directory
     raw_dir = os.path.join(base_dir, "..", "data", "raw")
     results_dir = os.path.join(base_dir, "..", "data", "results")
     
@@ -452,7 +446,7 @@ Output files will be saved to data/results/:
     logger.info("Step 5/6: Generating force-directed visualization...")
     force_directed_path = os.path.join(results_dir, f"{city_key}_force_directed.png")
     try:
-        plot_force_directed(G, place=city_key, sample_nodes=1000, output_path=force_directed_path)
+        plot_force_directed(G, place=city_key, output_path=force_directed_path)
     except Exception as e:
         logger.error(f"Error generating force-directed plot: {e}")
         raise

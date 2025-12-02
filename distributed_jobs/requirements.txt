@@ -12,6 +12,8 @@ osmnx
 # Geospatial data processing
 geopandas
 shapely
+scipy
+tqdm
 
 # Visualization
 matplotlib

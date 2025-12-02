@@ -1,0 +1,4 @@
+Manhattan__New_York__USA
+San_Francisco__California__USA
+Detroit__Michigan__USA
+Seattle__Washington__USA

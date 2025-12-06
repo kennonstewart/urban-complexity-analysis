@@ -2,3 +2,10 @@ cache/
 __pycache__/
 .dev/
 bin/
+data/results/*.json
+data/results/*.png
+data/results/*.csv
+data/results/*.adjlist
+data/results/*.g6
+data/results/*.edgelist
+data/results/*.geojson

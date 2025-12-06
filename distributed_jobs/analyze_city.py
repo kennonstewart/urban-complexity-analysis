@@ -8,13 +8,12 @@ representations, MDL statistics, and now GeoJSON export.
 
 The analysis pipeline includes:
 1. Loading the city's road network graph from GraphML format
-2. Generating geographic network visualizations
-3. Creating force-directed layout visualizations
-4. Computing canonical graph representations (adjlist, g6, edgelist)
-5. Computing MDL (Minimum Description Length) statistics at multiple radii
-6. Saving all results to the data/results directory
-7. Exporting the road network as GeoJSON (edges and nodes)
-8. Exporting BFS layers for network visualization
+2. Generating geographic network visualizations (optional, skip with --json-only)
+3. Creating force-directed layout visualizations (optional, skip with --json-only)
+4. Computing canonical graph representations (adjlist, g6, edgelist) (optional, skip with --json-only)
+5. Computing MDL (Minimum Description Length) statistics at multiple radii (optional, skip with --json-only)
+6. Exporting the road network as 3D force-directed layout JSON
+7. Exporting BFS layers for network visualization
 
 Usage:
     python analyze_city.py --city "Detroit, Michigan, USA"
@@ -150,11 +149,21 @@ def compute_bfs_layers(G, max_depth=5, starter_node=None):
     # Collect all nodes up to max_depth for efficient edge filtering
     all_nodes_in_bfs = set(node_to_depth.keys())
     
-    # Filter edges once: only keep edges where both endpoints are in BFS tree
-    valid_edges = []
+    # Filter edges once and group by max depth for efficiency
+    edges_by_max_depth = {}
     for u, v in G.edges():
         if u in all_nodes_in_bfs and v in all_nodes_in_bfs:
-            valid_edges.append((u, v, node_to_depth[u], node_to_depth[v]))
+            u_depth = node_to_depth[u]
+            v_depth = node_to_depth[v]
+            max_depth_edge = max(u_depth, v_depth)
+            
+            if max_depth_edge not in edges_by_max_depth:
+                edges_by_max_depth[max_depth_edge] = []
+            
+            edges_by_max_depth[max_depth_edge].append([
+                int(u) if isinstance(u, (int, np.integer)) else u,
+                int(v) if isinstance(v, (int, np.integer)) else v
+            ])
     
     # Build layers with nodes and edges
     layers = []
@@ -164,12 +173,11 @@ def compute_bfs_layers(G, max_depth=5, starter_node=None):
         
         nodes_at_depth = depth_to_nodes[depth]
         
-        # Find edges where both endpoints are at depth <= current depth
+        # Collect all edges up to this depth
         edges_in_subgraph = []
-        for u, v, u_depth, v_depth in valid_edges:
-            if u_depth <= depth and v_depth <= depth:
-                edges_in_subgraph.append([int(u) if isinstance(u, (int, np.integer)) else u,
-                                         int(v) if isinstance(v, (int, np.integer)) else v])
+        for d in range(depth + 1):
+            if d in edges_by_max_depth:
+                edges_in_subgraph.extend(edges_by_max_depth[d])
         
         layer_data = {
             "depth": depth,
@@ -296,7 +304,7 @@ Output files will be saved to data/results/:
         raise
     if not args.json_only:
         # Generate visualization (map)
-        logger.info("Step 1/6: Generating geographic network visualization...")
+        logger.info("Step 1/7: Generating geographic network visualization...")
         map_path = os.path.join(results_dir, f"{city_key}_map.png")
         try:
             fig, ax = ox.plot_graph(
@@ -321,7 +329,7 @@ Output files will be saved to data/results/:
             logger.error(f"Error generating map visualization: {e}")
             raise
         # Simplify and project the graph
-        logger.info("Step 2/6: Simplifying and projecting graph...")
+        logger.info("Step 2/7: Simplifying and projecting graph...")
         try:
             G_simplified = ox.simplification.simplify_graph(G)
             logger.debug(f"Simplified graph: {G_simplified.number_of_nodes()} nodes, {G_simplified.number_of_edges()} edges")
@@ -334,7 +342,7 @@ Output files will be saved to data/results/:
             nodes_gdf, edges_gdf = ox.graph_to_gdfs(G_proj)
             logger.info("Successfully projected graph (without simplification)")
         # Save canonical representations
-        logger.info("Step 3/6: Saving canonical graph representations...")
+        logger.info("Step 3/7: Saving canonical graph representations...")
         adjlist_path = os.path.join(results_dir, f"{city_key}.adjlist")
         g6_path = os.path.join(results_dir, f"{city_key}.g6")
         edgelist_path = os.path.join(results_dir, f"{city_key}.edgelist")
@@ -365,7 +373,7 @@ Output files will be saved to data/results/:
         del G_proj
         gc.collect()
         # Compute MDL statistics for radius subgraphs
-        logger.info("Step 4/6: Computing MDL statistics for radius subgraphs...")
+        logger.info("Step 4/7: Computing MDL statistics for radius subgraphs...")
         center_lon, center_lat = get_city_center(G)
         logger.info(f"City center coordinates: ({center_lon:.6f}, {center_lat:.6f})")
         radii_m = make_radii(max_km=10, step_km=0.5)
@@ -392,7 +400,7 @@ Output files will be saved to data/results/:
         del radius_subgraphs
         gc.collect()
         # Generate force-directed plot
-        logger.info("Step 5/6: Generating force-directed visualization...")
+        logger.info("Step 5/7: Generating force-directed visualization...")
         force_directed_path = os.path.join(results_dir, f"{city_key}_force_directed.png")
         try:
             plot_force_directed(G, place=city_key, output_path=force_directed_path)
@@ -403,7 +411,7 @@ Output files will be saved to data/results/:
         logger.info("Skipping steps 1-5 (visualization, canonical forms, MDL) due to --json-only")
 
     # Export to Plotly 3D JSON
-    logger.info("Step 6/6: Exporting 3D graph JSON...")
+    logger.info("Step 6/7: Exporting 3D graph JSON...")
     json_3d_path = os.path.join(results_dir, f"{city_key}_3d_graph.json")
     try:
         # Compute 3D force-directed layout
@@ -478,7 +486,7 @@ Output files will be saved to data/results/:
         # Don't raise, just log error so other results are preserved
 
     # Export BFS layers for network visualization
-    logger.info("Step 8/8: Computing and exporting BFS layers...")
+    logger.info("Step 7/7: Computing and exporting BFS layers...")
     bfs_layers_path = os.path.join(results_dir, f"{city_key}_bfs_layers.json")
     try:
         bfs_data = compute_bfs_layers(G, max_depth=args.bfs_depth)

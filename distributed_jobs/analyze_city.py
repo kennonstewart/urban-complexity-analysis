@@ -200,7 +200,6 @@ def compute_bfs_layers(G, max_depth=5, starter_node=None):
 
 def plot_force_directed(G, place=None, sample_nodes=None, output_path=None):
     if sample_nodes is not None and G.number_of_nodes() > sample_nodes:
-        import random
         nodes = random.sample(list(G.nodes()), sample_nodes)
         H = G.subgraph(nodes).copy()
     else:

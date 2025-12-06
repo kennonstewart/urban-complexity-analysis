@@ -10,6 +10,7 @@ import numpy as np
 from shapely.geometry import Point, LineString
 import gc
 import tqdm
+import json
 
 # %% [markdown]
 # ## Case Study: Analyzing the Complexity of New York's Road Network
@@ -167,6 +168,85 @@ for place in tqdm.tqdm(map_data, desc="Processing cities"):
         f.write(g6)
     
     nx.write_edgelist(G, str(filename) + ".edgelist", data=False)
+    
+    # Export 3D JSON
+    try:
+        nodes_gdf = G_std_nodes
+        edges_gdf = G_std_edges
+        
+        if 'z' in nodes_gdf.columns:
+            z_vals = nodes_gdf['z'].fillna(0).values
+        elif 'elevation' in nodes_gdf.columns:
+            z_vals = nodes_gdf['elevation'].fillna(0).values
+        else:
+            z_vals = np.zeros(len(nodes_gdf))
+            
+        node_x = nodes_gdf.geometry.x.values
+        node_y = nodes_gdf.geometry.y.values
+        node_ids = nodes_gdf.index.values
+        
+        # Prepare edge traces
+        edge_x = []
+        edge_y = []
+        edge_z = []
+        
+        for _, row in edges_gdf.iterrows():
+            if hasattr(row.geometry, 'coords'):
+                coords = list(row.geometry.coords)
+                xs = [c[0] for c in coords]
+                ys = [c[1] for c in coords]
+                zs = [c[2] if len(c) > 2 else 0 for c in coords]
+                
+                edge_x.extend(xs)
+                edge_x.append(None)
+                edge_y.extend(ys)
+                edge_y.append(None)
+                edge_z.extend(zs)
+                edge_z.append(None)
+
+        plotly_data = {
+            "data": [
+                {
+                    "type": "scatter3d",
+                    "mode": "lines",
+                    "name": "Edges",
+                    "x": edge_x,
+                    "y": edge_y,
+                    "z": edge_z,
+                    "line": {"color": "#69DDFF", "width": 2},
+                    "hoverinfo": "none"
+                },
+                {
+                    "type": "scatter3d",
+                    "mode": "markers",
+                    "name": "Nodes",
+                    "x": node_x.tolist(),
+                    "y": node_y.tolist(),
+                    "z": z_vals.tolist(),
+                    "marker": {"size": 2, "color": "#DBBADD", "opacity": 0.8},
+                    "text": [str(nid) for nid in node_ids],
+                    "hoverinfo": "text"
+                }
+            ],
+            "layout": {
+                "title": {"text": f"{place} Road Network (3D)"},
+                "showlegend": False,
+                "scene": {
+                    "xaxis": {"title": "X (m)", "showgrid": False, "zeroline": False, "showticklabels": False},
+                    "yaxis": {"title": "Y (m)", "showgrid": False, "zeroline": False, "showticklabels": False},
+                    "zaxis": {"title": "Z (m)", "showgrid": False, "zeroline": False, "showticklabels": False},
+                    "bgcolor": "#111111"
+                },
+                "paper_bgcolor": "#111111",
+                "font": {"color": "white"}
+            }
+        }
+        
+        with open(f"{place}_3d_graph.json", 'w') as f:
+            json.dump(plotly_data, f)
+            
+    except Exception as e:
+        print(f"Error exporting 3D JSON for {place}: {e}")
     
     # Cleanup intermediate objects
     if 'G_simplified' in locals():

@@ -6,23 +6,20 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=2G
-#SBATCH --array=0-499%50
+#SBATCH --array=0-5
 #SBATCH --output=/scratch/sstoev_root/sstoev0/ksstewar/uca_02_%x_%A_%a.out
 #SBATCH --error=/scratch/sstoev_root/sstoev0/ksstewar/uca_02_%x_%A_%a.err
 
 # Analyze city road networks in parallel using a job array
-# This job should be run after the download job completes
 # Submit with: sbatch --dependency=afterok:<download_job_id> 02_submit_analysis.sbatch
 
-# Load modules (adjust based on your HPC environment)
-module load python/3.9
-module load gdal
-
 # Activate virtual environment if needed
-# source /path/to/venv/bin/activate
-
-# Change to the distributed_jobs directory
-cd "$(dirname "$0")"
+cd urban-complexity-analysis
+echo "Entered urban-complexity-analysis-folder"
+source .dev/bin/activate 
+echo "Activated .dev environment"
+cd distributed_jobs
+echo "Migrated to distributed jobs environment"
 
 # Get the city key corresponding to this task ID
 # SLURM_ARRAY_TASK_ID is 0-indexed, sed is 1-indexed

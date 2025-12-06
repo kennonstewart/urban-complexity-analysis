@@ -14,9 +14,11 @@ The analysis pipeline includes:
 5. Computing MDL (Minimum Description Length) statistics at multiple radii
 6. Saving all results to the data/results directory
 7. Exporting the road network as GeoJSON (edges and nodes)
+8. Exporting BFS layers for network visualization
 
 Usage:
     python analyze_city.py --city "Detroit, Michigan, USA"
+    python analyze_city.py --city "Detroit, Michigan, USA" --bfs-depth 7
 """
 import argparse
 import gc
@@ -102,6 +104,100 @@ def mdl_stats(G_sub):
     return stats
 
 
+def compute_bfs_layers(G, max_depth=5, starter_node=None):
+    """
+    Compute BFS layers starting from a random or specified node.
+    
+    Args:
+        G: NetworkX graph (directed or undirected)
+        max_depth: Maximum BFS depth to explore
+        starter_node: Optional specific node to start from; if None, selects randomly
+    
+    Returns:
+        dict: {
+            "starter_node": node_id,
+            "max_depth": int,
+            "layers": [
+                {
+                    "depth": int,
+                    "nodes": [node_ids...],
+                    "edges": [[u, v], ...]
+                },
+                ...
+            ]
+        }
+    """
+    if G.number_of_nodes() == 0:
+        logger.warning("Empty graph, cannot compute BFS layers")
+        return {"starter_node": None, "max_depth": max_depth, "layers": []}
+    
+    # Select starter node
+    if starter_node is None:
+        starter_node = random.choice(list(G.nodes()))
+    
+    logger.info(f"Computing BFS layers from starter node: {starter_node}")
+    
+    # Perform BFS to get depth of each node
+    bfs_tree = nx.bfs_tree(G, starter_node, depth_limit=max_depth)
+    
+    # Build a mapping of node -> depth
+    node_to_depth = {starter_node: 0}
+    for node in bfs_tree.nodes():
+        if node != starter_node:
+            # Find shortest path length from starter to this node
+            try:
+                depth = nx.shortest_path_length(bfs_tree, starter_node, node)
+                node_to_depth[node] = depth
+            except nx.NetworkXNoPath:
+                continue
+    
+    # Group nodes by depth
+    depth_to_nodes = {}
+    for node, depth in node_to_depth.items():
+        if depth not in depth_to_nodes:
+            depth_to_nodes[depth] = []
+        depth_to_nodes[depth].append(node)
+    
+    # Build layers with nodes and edges
+    layers = []
+    for depth in range(max_depth + 1):
+        if depth not in depth_to_nodes:
+            break
+        
+        nodes_at_depth = depth_to_nodes[depth]
+        
+        # Collect all nodes up to this depth (cumulative subgraph)
+        nodes_in_subgraph = set()
+        for d in range(depth + 1):
+            if d in depth_to_nodes:
+                nodes_in_subgraph.update(depth_to_nodes[d])
+        
+        # Find edges where both endpoints are in the subgraph
+        edges_in_subgraph = []
+        for u, v in G.edges():
+            if u in nodes_in_subgraph and v in nodes_in_subgraph:
+                edges_in_subgraph.append([int(u) if isinstance(u, (int, np.integer)) else u,
+                                         int(v) if isinstance(v, (int, np.integer)) else v])
+        
+        layer_data = {
+            "depth": depth,
+            "nodes": [int(n) if isinstance(n, (int, np.integer)) else n for n in nodes_at_depth],
+            "edges": edges_in_subgraph
+        }
+        layers.append(layer_data)
+        
+        logger.debug(f"Layer {depth}: {len(nodes_at_depth)} nodes, {len(edges_in_subgraph)} edges in subgraph")
+    
+    result = {
+        "starter_node": int(starter_node) if isinstance(starter_node, (int, np.integer)) else starter_node,
+        "max_depth": max_depth,
+        "layers": layers
+    }
+    
+    logger.info(f"BFS layers computed: {len(layers)} layers, max depth {len(layers)-1}")
+    return result
+
+
 def plot_force_directed(G, place=None, sample_nodes=None, output_path=None):
     if sample_nodes is not None and G.number_of_nodes() > sample_nodes:
         import random
@@ -152,6 +248,7 @@ def main():
         epilog="""
 Example:
     python analyze_city.py --city "Detroit, Michigan, USA"
+    python analyze_city.py --city "Detroit, Michigan, USA" --bfs-depth 7
     
 Output files will be saved to data/results/:
     - {city}_map.png: Geographic network visualization
@@ -162,6 +259,7 @@ Output files will be saved to data/results/:
     - {city}_mdl_stats.csv: MDL statistics at multiple radii
     - {city}_edges.geojson: Road network (edges) as GeoJSON
     - {city}_nodes.geojson: Road network (nodes) as GeoJSON
+    - {city}_bfs_layers.json: BFS layers for network visualization
         """
     )
     parser.add_argument(
@@ -173,6 +271,12 @@ Output files will be saved to data/results/:
         "--json-only",
         action="store_true",
         help="Only generate the 3D JSON export (skipping other analysis steps)",
+    )
+    parser.add_argument(
+        "--bfs-depth",
+        type=int,
+        default=5,
+        help="Maximum BFS depth for network visualization layers (default: 5)",
     )
     args = parser.parse_args()
     city_key = args.city
@@ -379,6 +483,22 @@ Output files will be saved to data/results/:
         
     except Exception as e:
         logger.error(f"Error exporting 3D graph JSON: {e}")
+        # Don't raise, just log error so other results are preserved
+
+    # Export BFS layers for network visualization
+    logger.info("Step 7/7: Computing and exporting BFS layers...")
+    bfs_layers_path = os.path.join(results_dir, f"{city_key}_bfs_layers.json")
+    try:
+        bfs_data = compute_bfs_layers(G, max_depth=args.bfs_depth)
+        
+        with open(bfs_layers_path, 'w') as f:
+            json.dump(bfs_data, f, indent=2)
+        
+        logger.info(f"BFS layers JSON saved: {bfs_layers_path}")
+        logger.info(f"Starter node: {bfs_data['starter_node']}, Layers: {len(bfs_data['layers'])}")
+        
+    except Exception as e:
+        logger.error(f"Error exporting BFS layers: {e}")
         # Don't raise, just log error so other results are preserved
 
     logger.info("="*60)

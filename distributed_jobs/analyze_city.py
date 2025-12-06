@@ -137,19 +137,8 @@ def compute_bfs_layers(G, max_depth=5, starter_node=None):
     
     logger.info(f"Computing BFS layers from starter node: {starter_node}")
     
-    # Perform BFS to get depth of each node
-    bfs_tree = nx.bfs_tree(G, starter_node, depth_limit=max_depth)
-    
-    # Build a mapping of node -> depth
-    node_to_depth = {starter_node: 0}
-    for node in bfs_tree.nodes():
-        if node != starter_node:
-            # Find shortest path length from starter to this node
-            try:
-                depth = nx.shortest_path_length(bfs_tree, starter_node, node)
-                node_to_depth[node] = depth
-            except nx.NetworkXNoPath:
-                continue
+    # Perform BFS to get depth of each node (efficient single pass)
+    node_to_depth = nx.single_source_shortest_path_length(G, starter_node, cutoff=max_depth)
     
     # Group nodes by depth
     depth_to_nodes = {}
@@ -157,6 +146,15 @@ def compute_bfs_layers(G, max_depth=5, starter_node=None):
         if depth not in depth_to_nodes:
             depth_to_nodes[depth] = []
         depth_to_nodes[depth].append(node)
+    
+    # Collect all nodes up to max_depth for efficient edge filtering
+    all_nodes_in_bfs = set(node_to_depth.keys())
+    
+    # Filter edges once: only keep edges where both endpoints are in BFS tree
+    valid_edges = []
+    for u, v in G.edges():
+        if u in all_nodes_in_bfs and v in all_nodes_in_bfs:
+            valid_edges.append((u, v, node_to_depth[u], node_to_depth[v]))
     
     # Build layers with nodes and edges
     layers = []
@@ -166,16 +164,10 @@ def compute_bfs_layers(G, max_depth=5, starter_node=None):
         
         nodes_at_depth = depth_to_nodes[depth]
         
-        # Collect all nodes up to this depth (cumulative subgraph)
-        nodes_in_subgraph = set()
-        for d in range(depth + 1):
-            if d in depth_to_nodes:
-                nodes_in_subgraph.update(depth_to_nodes[d])
-        
-        # Find edges where both endpoints are in the subgraph
+        # Find edges where both endpoints are at depth <= current depth
         edges_in_subgraph = []
-        for u, v in G.edges():
-            if u in nodes_in_subgraph and v in nodes_in_subgraph:
+        for u, v, u_depth, v_depth in valid_edges:
+            if u_depth <= depth and v_depth <= depth:
                 edges_in_subgraph.append([int(u) if isinstance(u, (int, np.integer)) else u,
                                          int(v) if isinstance(v, (int, np.integer)) else v])
         
@@ -486,7 +478,7 @@ Output files will be saved to data/results/:
         # Don't raise, just log error so other results are preserved
 
     # Export BFS layers for network visualization
-    logger.info("Step 7/7: Computing and exporting BFS layers...")
+    logger.info("Step 8/8: Computing and exporting BFS layers...")
     bfs_layers_path = os.path.join(results_dir, f"{city_key}_bfs_layers.json")
     try:
         bfs_data = compute_bfs_layers(G, max_depth=args.bfs_depth)
